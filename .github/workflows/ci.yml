@@ -7,7 +7,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: ubuntu-latest
+            shell: zsh
+          - os: windows-latest
+            shell: pwsh
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -22,12 +31,18 @@ jobs:
         with:
           rust-version: 'stable'
       - run: rustup component add clippy
+        shell: ${{ matrix.shell }}
       - run: cargo clippy --workspace -- -D warnings
+        shell: ${{ matrix.shell }}
       - run: cargo check --workspace
+        shell: ${{ matrix.shell }}
       - run: pnpm --dir app run lint
+        shell: ${{ matrix.shell }}
       - run: pnpm --dir app exec tsc --noEmit
+        shell: ${{ matrix.shell }}
       - run: cargo test --workspace --verbose
-
+        shell: ${{ matrix.shell }}
+        
   windows-package:
     runs-on: windows-latest
     steps:

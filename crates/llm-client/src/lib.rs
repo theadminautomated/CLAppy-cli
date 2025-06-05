@@ -119,3 +119,24 @@ pub async fn infer<P: LlmProvider + ?Sized>(
 }
 
 #[derive(Debug, Clone)]
+struct HttpProvider {
+    cfg: LlmConfig,
+    client: Client,
+}
+
+#[async_trait]
+impl LlmProvider for HttpProvider {
+    async fn complete(&self, req: Prompt) -> Result<Resp> {
+        let url = format!("{}/complete", self.cfg.base_url);
+        let mut builder = self.client.post(url).json(&serde_json::json!({ "prompt": req.text }));
+        if let Some(key) = &self.cfg.api_key {
+            builder = builder.bearer_auth(key);
+        }
+        let resp: serde_json::Value = builder.send().await?.json().await?;
+        Ok(Resp { text: resp.get("text").and_then(|v| v.as_str()).unwrap_or_default().to_string() })
+    }
+}
+
+pub fn provider_from_config(cfg: &LlmConfig) -> Box<dyn LlmProvider> {
+    Box::new(HttpProvider { cfg: cfg.clone(), client: Client::new() })
+}

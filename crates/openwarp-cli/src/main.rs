@@ -339,4 +339,33 @@ mod tests {
             _ => panic!(),
         }
     }
+
+    #[rstest]
+    #[tokio::test]
+    async fn handle_line_exec() {
+        #[derive(Clone)]
+        struct HelloProvider;
+
+        #[async_trait]
+        impl LlmProvider for HelloProvider {
+            async fn complete(&self, _req: Prompt) -> Result<llm_client::Resp> {
+                Ok(llm_client::Resp { text: "echo hello".into() })
+            }
+        }
+
+        let cfg = LlmConfig {
+            provider: Provider::Ollama,
+            base_url: "".into(),
+            api_key: None,
+            model: "m".into(),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = ContextEngine::new(dir.path().to_str().unwrap());
+        let mut router = CommandRouter::with_provider(cfg, Box::new(HelloProvider), ctx);
+        router.handle_line("hello").await.unwrap();
+        assert_eq!(
+            router.context.cached_cmd("hello").as_deref(),
+            Some("echo hello")
+        );
+    }
 }
