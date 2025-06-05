@@ -18,7 +18,7 @@ jobs:
           version: 9
           run_install: true
           root_directory: app
-      - uses: actions/setup-rust@v2
+      - uses: actions/setup-rust@v3  # Update to @v3
         with:
           rust-version: 'stable'
       - run: rustup component add clippy
