@@ -2,7 +2,7 @@
 name = "plugin-sdk"
 version = "0.1.0"
 edition = "2024"
-authors = ["OpenWarp Contributors"]
+authors = ["CLAppy Contributors"]
 
 [dependencies]
 anyhow = "1"

@@ -1,5 +1,5 @@
 # Placeholder NSIS script
-OutFile "openwarp_installer.exe"
+OutFile "clappy_installer.exe"
 Section
   SetOutPath $TEMP
 SectionEnd

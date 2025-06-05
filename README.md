@@ -1,12 +1,13 @@
-# OpenWarp
+# CLAppy
 
-OpenWarp is a 100% open-source Warp-style terminal that runs as a standalone desktop app and as a CLI. It defaults to zero telemetry and supports BYOM (bring your own model) for AI features.
+CLAppy is a 100% open-source Warp-style terminal that runs as a standalone desktop app and as a CLI. It defaults to zero telemetry and supports BYOM (bring your own model) for AI features.
+This rebrand uses a glassmorphic design with Framer Motion micro-interactions and WCAG AA+ compliance. The mustache logo spins on click to toggle themes.
 
 ## Workspace Setup
 Run `cargo check` in the repo root to verify all Rust crates.
 
 ## CLI Usage
-Install with `cargo install --path crates/openwarp-cli` and run `openwarp --provider ollama --model llama3`.
+Install with `cargo install --path crates/clappy-cli` and run `clappy --provider ollama --model llama3`.
 The CLI features a dynamic command router. Enter a shell name (`bash`, `pwsh`, `cmd`) to spawn that shell, `/model <name>` to hot-swap the model, or any natural language which will be converted to a shell command using the selected provider. Telemetry is disabled unless `--insecure-telemetry` is passed.
 
 ```bash

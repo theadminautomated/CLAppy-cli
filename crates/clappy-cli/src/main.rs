@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use openwarp_cli::{CommandRouter, ContextEngine};
+use clappy_cli::{CommandRouter, ContextEngine};
 use llm_client::{LlmConfig, Provider, Prompt, provider_from_config};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -50,9 +50,9 @@ async fn main() -> Result<()> {
 
     if args.insecure_telemetry {
         println!("Telemetry enabled");
-        unsafe { std::env::set_var("OPENWARP_TELEMETRY", "1"); }
+        unsafe { std::env::set_var("CLAPPY_TELEMETRY", "1"); }
     } else {
-        unsafe { std::env::set_var("OPENWARP_TELEMETRY", "0"); }
+        unsafe { std::env::set_var("CLAPPY_TELEMETRY", "0"); }
     }
 
     let context = ContextEngine::new("context.db");

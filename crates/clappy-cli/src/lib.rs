@@ -22,18 +22,18 @@ struct PluginEntry {
     plugin: Plugin,
 }
 
-struct PluginBus {
+pub struct PluginBus {
     engine: wasmtime::Engine,
     entries: Vec<PluginEntry>,
     cfg: LlmConfig,
 }
 
 impl PluginBus {
-    fn new(cfg: LlmConfig) -> Self {
+    pub fn new(cfg: LlmConfig) -> Self {
         Self { engine: wasmtime::Engine::default(), entries: Vec::new(), cfg }
     }
 
-    fn load_dir(&mut self, dir: &str) -> Result<()> {
+    pub fn load_dir(&mut self, dir: &str) -> Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -51,7 +51,7 @@ impl PluginBus {
         Ok(())
     }
 
-    fn process_line(&mut self, line: &str) -> Result<Option<String>> {
+    pub fn process_line(&mut self, line: &str) -> Result<Option<String>> {
         for entry in &self.entries {
             if let Some(cap) = entry.regex.captures(line) {
                 let selected = cap.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
