@@ -1,5 +1,5 @@
 [package]
-name = "open-cli"
+name = "openwarp-cli"
 version = "0.1.0"
 edition = "2024"
 authors = ["OpenWarp Contributors"]

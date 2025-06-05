@@ -4,3 +4,7 @@ OpenWarp is a 100% open-source Warp-style terminal that runs as a standalone des
 
 ## Workspace Setup
 Run `cargo check` in the repo root to verify all Rust crates.
+
+## CLI Usage
+Install with `cargo install --path crates/openwarp-cli` and run `openwarp --provider ollama --model llama3`.
+
