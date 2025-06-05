@@ -1,7 +1,14 @@
 #![deny(clippy::all)]
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+static INTERACTIVE_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)^(python|node|pwsh|powershell|cmd|bash|zsh|fish)(\.exe)?$")
+        .unwrap()
+});
 use llm_client::{LlmConfig, LlmProvider, Prompt, Provider, provider_from_config};
 use std::process::Command;
 use terminal_core::{Block, run, CommandOutput};
@@ -22,6 +29,15 @@ struct Cli {
     /// Opt into telemetry
     #[arg(long, default_value_t = false)]
     insecure_telemetry: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Return a completion for the given partial input
+    Predict { input: String },
 }
 
 enum Route {
@@ -34,17 +50,18 @@ struct CommandRouter {
     cfg: LlmConfig,
     provider: Box<dyn LlmProvider>,
     context: ContextEngine,
+    interactive: bool,
 }
 
 impl CommandRouter {
     fn new(cfg: LlmConfig, context: ContextEngine) -> Self {
         let provider = provider_from_config(&cfg);
-        Self { cfg, provider, context }
+        Self { cfg, provider, context, interactive: false }
     }
 
     #[cfg(test)]
     fn with_provider(cfg: LlmConfig, provider: Box<dyn LlmProvider>, context: ContextEngine) -> Self {
-        Self { cfg, provider, context }
+        Self { cfg, provider, context, interactive: false }
     }
 
     async fn nl_to_shell(&self, line: &str) -> Result<(String, String)> {
@@ -63,7 +80,7 @@ impl CommandRouter {
 
     async fn route(&mut self, line: &str) -> Result<Route> {
         let trimmed = line.trim();
-        if trimmed == "bash" || trimmed == "pwsh" || trimmed == "cmd" {
+        if INTERACTIVE_RE.is_match(trimmed) {
             return Ok(Route::Spawn(trimmed.into()));
         }
         if let Some(rest) = trimmed.strip_prefix("/model ") {
@@ -76,8 +93,22 @@ impl CommandRouter {
     }
 
     async fn handle_line(&mut self, line: &str) -> Result<()> {
+        let trimmed = line.trim();
+        if trimmed == "/ai off" {
+            self.interactive = true;
+            println!("AI disabled");
+            return Ok(());
+        } else if trimmed == "/ai on" {
+            self.interactive = false;
+            println!("AI re-enabled");
+            return Ok(());
+        }
+
         match self.route(line).await? {
             Route::Spawn(shell) => {
+                if INTERACTIVE_RE.is_match(&shell) {
+                    self.interactive = true;
+                }
                 let mut cmd = Command::new(shell);
                 let CommandOutput { mut blocks, exit } = run(cmd).await?;
                 while let Some(Block { text }) = blocks.next().await {
@@ -89,12 +120,18 @@ impl CommandRouter {
                 if code != 0 {
                     println!("Fix?");
                 }
+                if self.interactive {
+                    self.interactive = false;
+                    println!("AI re-enabled");
+                }
             }
             Route::Switch(model) => {
                 println!("Switched model to {model}");
             }
             Route::Exec { cmd, rationale } => {
-                println!("# AI: {rationale}");
+                if !self.interactive {
+                    println!("# AI: {rationale}");
+                }
                 let mut command = if cfg!(target_os = "windows") {
                     let mut c = Command::new("cmd");
                     c.arg("/C").arg(&cmd);
@@ -137,6 +174,13 @@ async fn main() -> Result<()> {
         api_key: None,
         model: args.model.clone(),
     };
+
+    if let Some(Commands::Predict { input }) = args.command {
+        let provider = provider_from_config(&cfg);
+        let resp = provider.complete(Prompt { text: input }).await?;
+        println!("{}", resp.text);
+        return Ok(());
+    }
 
     if args.insecure_telemetry {
         println!("Telemetry enabled");
