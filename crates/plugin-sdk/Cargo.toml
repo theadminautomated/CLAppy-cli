@@ -7,6 +7,9 @@ authors = ["OpenWarp Contributors"]
 [dependencies]
 anyhow = "1"
 wasmtime = "19"
+tokio = { version = "1", features = ["rt"] }
+llm-client = { path = "../llm-client" }
 
 [dev-dependencies]
 rstest = "0.18"
+wiremock = "0.6"
