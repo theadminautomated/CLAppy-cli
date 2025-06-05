@@ -15,3 +15,7 @@ The CLI features a dynamic command router. Enter a shell name (`bash`, `pwsh`, `
 # AI: "Try 'winget source reset --force'"
 winget source reset --force
 ```
+
+## Documentation
+
+Full documentation lives at [docs.clappy.dev](https://docs.clappy.dev). API docs are published to [docs.rs](https://docs.rs) and generated via `pnpm run typedoc` and `cargo doc`.
