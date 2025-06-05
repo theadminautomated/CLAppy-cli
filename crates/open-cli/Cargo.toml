@@ -1,0 +1,15 @@
+[package]
+name = "open-cli"
+version = "0.1.0"
+edition = "2024"
+authors = ["OpenWarp Contributors"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+terminal-core = { path = "../terminal-core" }
+llm-client = { path = "../llm-client" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+rstest = "0.18"

@@ -1,0 +1,12 @@
+[package]
+name = "plugin-sdk"
+version = "0.1.0"
+edition = "2024"
+authors = ["OpenWarp Contributors"]
+
+[dependencies]
+anyhow = "1"
+wasmtime = "19"
+
+[dev-dependencies]
+rstest = "0.18"

@@ -1,0 +1,9 @@
+[llm]
+provider = "ollama"
+base_url = "http://localhost:11434"
+api_key = ""
+model = "llama3"
+
+[ui]
+theme = "dark"
+telemetry = false
