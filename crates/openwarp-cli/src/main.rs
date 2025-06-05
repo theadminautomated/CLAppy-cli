@@ -2,255 +2,28 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use colored::Colorize;
-use once_cell::sync::Lazy;
-use regex::Regex;
-use plugin_sdk::{Plugin, PluginInstance};
-use std::path::Path;
-use std::time::Instant;
-use std::fs;
-
-struct PluginEntry {
-    regex: Regex,
-    plugin: Plugin,
-}
-
-struct PluginBus {
-    engine: wasmtime::Engine,
-    entries: Vec<PluginEntry>,
-    cfg: LlmConfig,
-}
-
-impl PluginBus {
-    fn new(cfg: LlmConfig) -> Self {
-        Self { engine: wasmtime::Engine::default(), entries: Vec::new(), cfg }
-    }
-
-    fn load_dir(&mut self, dir: &str) -> Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-                let data = fs::read_to_string(&path)?;
-                let manifest: toml::Value = toml::from_str(&data)?;
-                let regex_str = manifest["regex"].as_str().unwrap_or(".*");
-                let wasm_path = path.with_extension("wasm");
-                if wasm_path.exists() {
-                    let plugin = Plugin::load(&self.engine, wasm_path.to_str().unwrap())?;
-                    self.entries.push(PluginEntry { regex: Regex::new(regex_str)?, plugin });
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn process_line(&mut self, line: &str) -> Result<Option<String>> {
-        for entry in &self.entries {
-            if let Some(cap) = entry.regex.captures(line) {
-                let selected = cap.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
-                let mut inst = entry.plugin.instantiate(
-                    &self.engine,
-                    self.cfg.clone(),
-                    line.to_string(),
-                    selected,
-                )?;
-                inst.invoke("run")?;
-                return Ok(Some(inst.output().to_string()));
-            }
-        }
-        Ok(None)
-    }
-}
-
-fn safety_scan(cmd: &str) -> bool {
-    static DANGER: &[&str] = &[r"rm\s+-rf\s+/", r"mkfs", r"format\s", r"del\s+/s"];
-    for pat in DANGER {
-        if Regex::new(pat).unwrap().is_match(cmd) {
-            return false;
-        }
-    }
-    true
-}
-
-static INTERACTIVE_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)^(python|node|pwsh|powershell|cmd|bash|zsh|fish)(\.exe)?$")
-        .unwrap()
-});
-use llm_client::{LlmConfig, LlmProvider, Prompt, Provider, provider_from_config};
-use std::process::Command;
-use terminal_core::{Block, run, CommandOutput};
-mod context;
-use context::ContextEngine;
-use tokio::io::{self, AsyncBufReadExt, BufReader};
-use tokio_stream::StreamExt;
+use openwarp_cli::{CommandRouter, ContextEngine};
+use llm_client::{LlmConfig, Provider, Prompt, provider_from_config};
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Cli {
-    /// LLM provider to use
     #[arg(long, default_value = "ollama")]
     provider: String,
-    /// Model name
     #[arg(long, default_value = "llama3")]
     model: String,
-    /// Opt into telemetry
     #[arg(long, default_value_t = false)]
     insecure_telemetry: bool,
-    /// Bypass safety checks
     #[arg(long, default_value_t = false)]
     i_know: bool,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Return a completion for the given partial input
     Predict { input: String },
-}
-
-enum Route {
-    Spawn(String),
-    Switch(String),
-    Exec { cmd: String, rationale: String, latency: u128, tokens: usize },
-}
-
-struct CommandRouter {
-    cfg: LlmConfig,
-    provider: Box<dyn LlmProvider>,
-    context: ContextEngine,
-    interactive: bool,
-    plugins: PluginBus,
-    i_know: bool,
-}
-
-impl CommandRouter {
-    fn new(cfg: LlmConfig, context: ContextEngine, i_know: bool) -> Self {
-        let provider = provider_from_config(&cfg);
-        let mut plugins = PluginBus::new(cfg.clone());
-        let _ = plugins.load_dir("plugins");
-        Self { cfg, provider, context, interactive: false, plugins, i_know }
-    }
-
-    #[cfg(test)]
-    fn with_provider(cfg: LlmConfig, provider: Box<dyn LlmProvider>, context: ContextEngine) -> Self {
-        let mut plugins = PluginBus::new(cfg.clone());
-        let _ = plugins.load_dir("plugins");
-        Self { cfg, provider, context, interactive: false, plugins, i_know: false }
-    }
-
-    async fn nl_to_shell(&self, line: &str) -> Result<(String, String, u128, usize)> {
-        if let Some(cmd) = self.context.cached_cmd(line) {
-            return Ok((cmd, "cached".into(), 0, 0));
-        }
-        let input = format!("{}\n{}", self.context.context(), line);
-        let start = Instant::now();
-        let resp = self
-            .provider
-            .complete(Prompt {
-                text: input,
-            })
-            .await?;
-        let latency = start.elapsed().as_millis();
-        let tokens = resp.text.split_whitespace().count();
-        Ok((resp.text, "generated by ai".into(), latency, tokens))
-    }
-
-    async fn route(&mut self, line: &str) -> Result<Route> {
-        let trimmed = line.trim();
-        if INTERACTIVE_RE.is_match(trimmed) {
-            return Ok(Route::Spawn(trimmed.into()));
-        }
-        if let Some(rest) = trimmed.strip_prefix("/model ") {
-            self.cfg.model = rest.to_string();
-            self.provider = provider_from_config(&self.cfg);
-            return Ok(Route::Switch(rest.to_string()));
-        }
-        let (cmd, rationale, latency, tokens) = self.nl_to_shell(trimmed).await?;
-        Ok(Route::Exec { cmd, rationale, latency, tokens })
-    }
-
-    async fn handle_line(&mut self, line: &str) -> Result<()> {
-        if let Some(out) = self.plugins.process_line(line)? {
-            let _ = open::that(out);
-            return Ok(());
-        }
-        let trimmed = line.trim();
-        if trimmed == "/ai off" {
-            self.interactive = true;
-            println!("AI disabled");
-            return Ok(());
-        } else if trimmed == "/ai on" {
-            self.interactive = false;
-            println!("AI re-enabled");
-            return Ok(());
-        }
-
-        match self.route(line).await? {
-            Route::Spawn(shell) => {
-                if INTERACTIVE_RE.is_match(&shell) {
-                    self.interactive = true;
-                }
-                let mut cmd = Command::new(shell);
-                let CommandOutput { mut blocks, exit } = run(cmd).await?;
-                while let Some(Block { text }) = blocks.next().await {
-                    println!("{}", text);
-                    self.context.push(Block { text });
-                }
-                let code = exit.await.unwrap_or(1);
-                self.context.push(Block { text: format!("exit: {code}") });
-                if code != 0 {
-                    println!("Fix?");
-                }
-                if self.interactive {
-                    self.interactive = false;
-                    println!("AI re-enabled");
-                }
-            }
-            Route::Switch(model) => {
-                println!("Switched model to {model}");
-            }
-            Route::Exec { cmd, rationale, latency, tokens } => {
-                if !self.interactive {
-                    println!("{}", format!("# AI: {rationale}").cyan());
-                }
-                if !safety_scan(&cmd) && !self.i_know {
-                    println!("Dangerous command: {cmd}. Run? [y/N]");
-                    let mut confirm = String::new();
-                    io::stdin().read_line(&mut confirm).await?;
-                    if confirm.trim() != "y" {
-                        println!("Aborted");
-                        return Ok(());
-                    }
-                }
-                let mut command = if cfg!(target_os = "windows") {
-                    let mut c = Command::new("cmd");
-                    c.arg("/C").arg(&cmd);
-                    c
-                } else {
-                    let mut c = Command::new("sh");
-                    c.arg("-c").arg(&cmd);
-                    c
-                };
-                let CommandOutput { mut blocks, exit } = run(command).await?;
-                while let Some(Block { text }) = blocks.next().await {
-                    println!("{}", text);
-                    self.context.push(Block { text });
-                }
-                let code = exit.await.unwrap_or(1);
-                if code == 0 {
-                    self.context.cache_translation(line, &cmd);
-                }
-                self.context.push(Block { text: format!("exit: {code}") });
-                println!("[{} ▶ {}ms, tokens {}, {}]", self.cfg.model, latency, tokens, self.cfg.provider);
-                if code != 0 {
-                    println!("Fix?");
-                }
-            }
-        }
-        Ok(())
-    }
 }
 
 #[tokio::main]
@@ -277,9 +50,9 @@ async fn main() -> Result<()> {
 
     if args.insecure_telemetry {
         println!("Telemetry enabled");
-        std::env::set_var("OPENWARP_TELEMETRY", "1");
+        unsafe { std::env::set_var("OPENWARP_TELEMETRY", "1"); }
     } else {
-        std::env::set_var("OPENWARP_TELEMETRY", "0");
+        unsafe { std::env::set_var("OPENWARP_TELEMETRY", "0"); }
     }
 
     let context = ContextEngine::new("context.db");
@@ -290,82 +63,4 @@ async fn main() -> Result<()> {
         router.handle_line(&line).await?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rstest::rstest;
-
-    #[derive(Clone)]
-    struct FakeProvider;
-
-    use async_trait::async_trait;
-
-    #[async_trait]
-    impl LlmProvider for FakeProvider {
-        async fn complete(&self, req: Prompt) -> Result<llm_client::Resp> {
-            Ok(llm_client::Resp {
-                text: format!("echo {}", req.text),
-            })
-        }
-@@ -260,30 +356,30 @@ mod tests {
-            api_key: None,
-            model: "m".into(),
-        };
-        let dir = tempfile::tempdir().unwrap();
-        let ctx = ContextEngine::new(dir.path().to_str().unwrap());
-        let mut router = CommandRouter::with_provider(cfg, Box::new(FakeProvider), ctx);
-        match router.route("/model x").await.unwrap() {
-            Route::Switch(m) => assert_eq!(m, "x"),
-            _ => panic!(),
-        }
-    }
-
-    #[rstest]
-    #[tokio::test]
-    async fn route_exec() {
-        let cfg = LlmConfig {
-            provider: Provider::Ollama,
-            base_url: "".into(),
-            api_key: None,
-            model: "m".into(),
-        };
-        let dir = tempfile::tempdir().unwrap();
-        let ctx = ContextEngine::new(dir.path().to_str().unwrap());
-        let mut router = CommandRouter::with_provider(cfg, Box::new(FakeProvider), ctx);
-        match router.route("list files").await.unwrap() {
-            Route::Exec { cmd, .. } => assert_eq!(cmd, "echo list files"),
-            _ => panic!(),
-        }
-    }
-
-    #[rstest]
-    #[tokio::test]
-    async fn handle_line_exec() {
-        #[derive(Clone)]
-        struct HelloProvider;
-
-        #[async_trait]
-        impl LlmProvider for HelloProvider {
-            async fn complete(&self, _req: Prompt) -> Result<llm_client::Resp> {
-                Ok(llm_client::Resp { text: "echo hello".into() })
-            }
-        }
-
-        let cfg = LlmConfig {
-            provider: Provider::Ollama,
-            base_url: "".into(),
-            api_key: None,
-            model: "m".into(),
-        };
-        let dir = tempfile::tempdir().unwrap();
-        let ctx = ContextEngine::new(dir.path().to_str().unwrap());
-        let mut router = CommandRouter::with_provider(cfg, Box::new(HelloProvider), ctx);
-        router.handle_line("hello").await.unwrap();
-        assert_eq!(
-            router.context.cached_cmd("hello").as_deref(),
-            Some("echo hello")
-        );
-    }
 }
