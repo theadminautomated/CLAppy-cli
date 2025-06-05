@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use llm_client::{send_completion, LlmConfig, Provider};
+use llm_client::{provider_from_config, LlmConfig, Provider, Prompt};
 use terminal_core::{run, Block};
 use tokio_stream::StreamExt;
 use std::process::Command;
@@ -32,7 +32,8 @@ async fn main() -> Result<()> {
         api_key: None,
         model: args.model.clone(),
     };
-    let _ = send_completion(&cfg, "hello").await.ok();
+    let provider = provider_from_config(&cfg);
+    let _ = provider.complete(Prompt { text: "hello".into() }).await.ok();
 
     let mut cmd = Command::new("sh");
     cmd.arg("-c").arg("echo openwarp");
