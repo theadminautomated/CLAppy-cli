@@ -1,11 +1,11 @@
 #![deny(clippy::all)]
 use anyhow::Result;
 use async_trait::async_trait;
-use cucumber::{given, then, when, World, WorldInit};
-use openwarp_cli::{CommandRouter, Route, safety_scan, ContextEngine};
+use cucumber::{given, then, when, World};
+use clappy_cli::{CommandRouter, Route, safety_scan, ContextEngine};
 use llm_client::{LlmConfig, LlmProvider, Prompt, Provider};
 
-#[derive(WorldInit, Default)]
+#[derive(World, Default)]
 struct MyWorld {
     router: Option<CommandRouter>,
     last_route: Option<Route>,
@@ -13,12 +13,6 @@ struct MyWorld {
 }
 
 #[async_trait(?Send)]
-impl World for MyWorld {
-    type Error = anyhow::Error;
-
-    async fn new() -> Result<Self> { Ok(Self::default()) }
-}
-
 #[given("a command router")]
 async fn a_command_router(world: &mut MyWorld) {
     #[derive(Clone)]
@@ -74,7 +68,7 @@ async fn route_spawn(world: &mut MyWorld, shell: String) {
 #[when(regex = "^plugin bus processes \"(.+)\"$")]
 async fn plugin_bus(world: &mut MyWorld, line: String) {
     let router = world.router.as_mut().unwrap();
-    let mut bus = openwarp_cli::PluginBus::new(LlmConfig { provider: Provider::Ollama, base_url: "".into(), api_key: None, model: "m".into() });
+    let mut bus = clappy_cli::PluginBus::new(LlmConfig { provider: Provider::Ollama, base_url: "".into(), api_key: None, model: "m".into() });
     let _ = bus.load_dir("plugins");
     world.plugin_output = bus.process_line(&line).unwrap();
 }

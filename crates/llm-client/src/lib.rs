@@ -81,7 +81,7 @@ pub trait LlmProvider: Send + Sync {
 
 /// Build the prompt for a given [`Intent`].
 fn build_prompt(intent: Intent, text: &str, failure: Option<&str>) -> String {
-    let telemetry = std::env::var("OPENWARP_TELEMETRY").unwrap_or_else(|_| "0".into()) == "1";
+    let telemetry = std::env::var("CLAPPY_TELEMETRY").unwrap_or_else(|_| "0".into()) == "1";
     let os = if telemetry { std::env::consts::OS } else { "unknown" };
     let shell = if telemetry { std::env::var("SHELL").unwrap_or_default() } else { "redacted".into() };
     let path = if telemetry { std::env::var("PATH").unwrap_or_default() } else { "<redacted>".into() };

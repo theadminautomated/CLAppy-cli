@@ -1,5 +1,8 @@
 [workspace]
 members = [
-    "crates/*"
+    "crates/clappy-cli",
+    "crates/llm-client",
+    "crates/plugin-sdk",
+    "crates/terminal-core"
 ]
 resolver = "2"

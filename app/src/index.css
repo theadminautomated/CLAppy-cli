@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+}
+.dark {
+  --bg: #111827;
+  --fg: #ffffff;
+}
+.high-contrast {
+  --bg: #000000;
+  --fg: #ffff00;
+}
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
