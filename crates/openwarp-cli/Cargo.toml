@@ -10,6 +10,7 @@ anyhow = "1"
 terminal-core = { path = "../terminal-core" }
 llm-client = { path = "../llm-client" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio-stream = "0.1"
 
 [dev-dependencies]
 rstest = "0.18"

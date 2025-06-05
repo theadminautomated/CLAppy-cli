@@ -3,7 +3,9 @@
 use anyhow::Result;
 use clap::Parser;
 use llm_client::{send_completion, LlmConfig, Provider};
-use terminal_core::run_command;
+use terminal_core::{run, Block};
+use tokio_stream::StreamExt;
+use std::process::Command;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -31,7 +33,13 @@ async fn main() -> Result<()> {
         model: args.model.clone(),
     };
     let _ = send_completion(&cfg, "hello").await.ok();
-    println!("{}", run_command("echo openwarp")?);
+
+    let mut cmd = Command::new("sh");
+    cmd.arg("-c").arg("echo openwarp");
+    let mut stream = run(cmd).await?;
+    while let Some(Block { text }) = stream.next().await {
+        println!("{}", text);
+    }
     Ok(())
 }
 
