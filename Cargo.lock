@@ -1748,6 +1748,8 @@ dependencies = [
  "async-trait",
  "clap",
  "llm-client",
+ "once_cell",
+ "regex",
  "rocksdb",
  "rstest",
  "tempfile",
