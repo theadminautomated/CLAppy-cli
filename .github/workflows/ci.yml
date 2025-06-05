@@ -42,6 +42,10 @@ jobs:
         shell: ${{ matrix.shell }}
       - run: cargo test --workspace --verbose
         shell: ${{ matrix.shell }}
+      - run: pnpm --dir app run typedoc
+        shell: ${{ matrix.shell }}
+      - run: cargo doc --workspace --no-deps
+        shell: ${{ matrix.shell }}
         
   windows-package:
     runs-on: windows-latest

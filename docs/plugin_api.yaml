@@ -1,0 +1,24 @@
+openapi: 3.0.1
+info:
+  title: CLAppy Plugin API
+  version: 0.1.0
+paths:
+  /run:
+    post:
+      summary: Execute plugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                args:
+                  type: string
+      responses:
+        '200':
+          description: Output text
+          content:
+            text/plain:
+              schema:
+                type: string

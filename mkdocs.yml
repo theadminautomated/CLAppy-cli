@@ -1,0 +1,17 @@
+site_name: CLAppy Documentation
+site_url: https://docs.clappy.dev
+nav:
+  - Home: docs/index.md
+  - Quick Start: docs/quick-start.md
+  - BYOM How-To: docs/byom.md
+  - Plugin SDK: docs/plugin-sdk.md
+  - Architecture: docs/architecture.md
+  - AI Router: docs/ai-router.md
+  - Plugin API: docs/plugin-api.md
+  - React Components: docs/storybook.md
+  - TypeScript API: docs/typedoc/index.md
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - codehilite
