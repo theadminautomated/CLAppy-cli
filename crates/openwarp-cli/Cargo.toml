@@ -11,7 +11,9 @@ terminal-core = { path = "../terminal-core" }
 llm-client = { path = "../llm-client" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"] }
 tokio-stream = "0.1"
+rocksdb = "0.21"
 
 [dev-dependencies]
 rstest = "0.18"
 async-trait = "0.1"
+tempfile = "3"

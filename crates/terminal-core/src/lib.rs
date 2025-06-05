@@ -49,8 +49,16 @@ pub fn parse_blocks(output: &str) -> Vec<Block> {
 }
 
 /// Run a command asynchronously and stream its output as [`Block`]s.
-pub async fn run(mut command: Command) -> Result<impl Stream<Item = Block>> {
+use tokio::sync::oneshot;
+
+pub struct CommandOutput {
+    pub blocks: UnboundedReceiverStream<Block>,
+    pub exit: oneshot::Receiver<i32>,
+}
+
+pub async fn run(mut command: Command) -> Result<CommandOutput> {
     let (tx, rx) = unbounded_channel();
+    let (exit_tx, exit_rx) = oneshot::channel();
 
     tokio::task::spawn_blocking(move || {
         let mut rt = Runtime::new().expect("compat runtime");
@@ -63,7 +71,8 @@ pub async fn run(mut command: Command) -> Result<impl Stream<Item = Block>> {
             .compat();
 
         let buf = rt.block_on_std(read_fut).expect("read");
-        let _ = rt.block_on_std(child.compat());
+        let status = rt.block_on_std(child.compat()).map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+        let _ = exit_tx.send(status);
 
         let text = String::from_utf8_lossy(&buf);
         for block in parse_blocks(&text) {
@@ -71,7 +80,10 @@ pub async fn run(mut command: Command) -> Result<impl Stream<Item = Block>> {
         }
     });
 
-    Ok(UnboundedReceiverStream::new(rx))
+    Ok(CommandOutput {
+        blocks: UnboundedReceiverStream::new(rx),
+        exit: exit_rx,
+    })
 }
 
 
