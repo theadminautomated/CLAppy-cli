@@ -1,0 +1,16 @@
+{
+  "name": "openwarp-app",
+  "version": "0.1.0",
+  "scripts": {
+    "tauri": "tauri dev"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  }
+}
