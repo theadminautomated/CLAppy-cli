@@ -13,10 +13,19 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          run_install: true
+          root_directory: app
       - uses: actions/setup-rust@v1
         with:
-          rust-version: '1.76'
+          rust-version: 'stable'
+      - run: rustup component add clippy
+      - run: cargo clippy --workspace -- -D warnings
       - run: cargo check --workspace
+      - run: pnpm --dir app run lint
+      - run: pnpm --dir app exec tsc --noEmit
       - run: cargo test --workspace --verbose
 
   windows-package:
@@ -25,7 +34,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-rust@v1
         with:
-          rust-version: '1.76'
+          rust-version: 'stable'
       - uses: Swatinem/rust-cache@v2
       - name: Build one-click EXE
         run: pwsh scripts/build_windows.ps1
