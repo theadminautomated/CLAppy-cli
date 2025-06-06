@@ -57,6 +57,36 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build one-click EXE
         run: pwsh scripts/build_windows.ps1
+      - name: Sign EXE
+        if: env.WINDOWS_CERT != ''
+        run: signtool sign /fd SHA256 /a /f $env:WINDOWS_CERT dist\clappy.exe
       - uses: actions/upload-artifact@v4
         with:
           path: dist/clappy.exe
+  macos-package:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-rust@v3
+        with:
+          rust-version: 'stable'
+      - name: Build dmg
+        run: bash scripts/build_macos.sh
+      - name: Sign dmg
+        if: env.APPLE_CERT != ''
+        run: codesign --timestamp --sign "$APPLE_CERT" target/release/bundle/dmg/*.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          path: target/release/bundle/dmg/*.dmg
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-rust@v3
+        with:
+          rust-version: 'stable'
+      - run: bash scripts/generate_sbom.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          path: sbom.xml*
