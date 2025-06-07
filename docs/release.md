@@ -2,6 +2,7 @@
 
 ## 23. Full QA & Release Candidate
 - Run unit tests and `cargo clippy`.
+- Bump crate versions to `1.0.0` across the workspace.
 - Execute Cypress UI tests: `pnpm --dir app run test:e2e`.
 - Check for memory leaks with `valgrind` on Linux and Instruments on macOS.
 - Perform accessibility audit via `pnpm --dir app run a11y`.
