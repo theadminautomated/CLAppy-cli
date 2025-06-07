@@ -1,3 +1,5 @@
+. "$PSScriptRoot/windows_env.ps1"
+
 cargo tauri build --windows --release
 $msi = Get-ChildItem target\release\bundle\msi\*.msi
 Copy-Item -Recurse share\examples target\release\bundle\msi\
