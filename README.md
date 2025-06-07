@@ -10,6 +10,10 @@ Run `cargo check` in the repo root to verify all Rust crates.
 Install with `cargo install --path crates/clappy-cli` and run `clappy --provider ollama --model llama3`.
 The CLI features a dynamic command router. Enter a shell name (`bash`, `pwsh`, `cmd`) to spawn that shell, `/model <name>` to hot-swap the model, or any natural language which will be converted to a shell command using the selected provider. Telemetry is disabled unless `--insecure-telemetry` is passed.
 
+## Production Release
+
+CLAppy **1.0.0** is now available. Install the CLI from crates.io or grab the signed desktop installers from the GitHub Releases page.
+
 ## Windows Build
 Run `pwsh scripts/build_setup.ps1` to create a single `clappy.exe` in the `dist` folder. The script now configures Visual Studio build tools, Node and Rust automatically before bundling the Tauri MSI with NSIS and `pkgforge` for a one-click installer.
 
